@@ -5,6 +5,7 @@ FPS = 15
 TILE_SIZE = 32
 ENEMY_EVENT_TYPE = pygame.USEREVENT + 6
 
+
 class Labyrinth:
     def __init__(self, filename, free_tiles, finish_tile):
         self.map = []
@@ -32,9 +33,9 @@ class Labyrinth:
         return self.get_tile_id(position) in self.free_tiles
 
     def find_path_step(self, start, target):
-        INF = 1000
+        inf = 1000
         x, y = start
-        distance = [[INF] * self.width for _ in range(self.height)]
+        distance = [[inf] * self.width for _ in range(self.height)]
         distance[y][x] = 0
         prev = [[None] * self.width for _ in range(self.height)]
         queue = [(x, y)]
@@ -43,12 +44,12 @@ class Labyrinth:
             for dx, dy in (1, 0), (0, 1), (-1, 0), (0, -1):
                 next_x, next_y = x + dx, y + dy
                 if 0 <= next_x < self.width and 0 < next_y < self.height and \
-                        self.is_free((next_x, next_y)) and distance[next_y][next_x] == INF:
+                        self.is_free((next_x, next_y)) and distance[next_y][next_x] == inf:
                     distance[next_y][next_x] = distance[y][x] + 1
                     prev[next_y][next_x] = (x, y)
                     queue.append((next_x, next_y))
         x, y = target
-        if distance[y][x] == INF or start == target:
+        if distance[y][x] == inf or start == target:
             return start
         while prev[y][x] != start:
             x, y = prev[y][x]
@@ -56,7 +57,7 @@ class Labyrinth:
         return x, y
 
 
-class Hero:
+class Pacman:
     def __init__(self, position):
         self.x, self.y = position
 
@@ -71,7 +72,7 @@ class Hero:
         pygame.draw.circle(screen, (255, 255, 0), center, TILE_SIZE // 2)
 
 
-class Enemy:
+class Red:
     def __init__(self, position):
         self.x, self.y = position
         self.delay = 100
@@ -88,19 +89,38 @@ class Enemy:
         pygame.draw.circle(screen, pygame.Color('red'), center, TILE_SIZE // 2)
 
 
+class Orange:
+    def __init__(self, position):
+        self.x, self.y = position
+        self.delay = 100
+        pygame.time.set_timer(ENEMY_EVENT_TYPE, self.delay)
+
+    def get_position(self):
+        return self.x, self.y
+
+    def set_position(self, position):
+        self.x, self.y = position
+
+    def render(self, screen):
+        center = self.x * TILE_SIZE + TILE_SIZE // 2, self.y * TILE_SIZE + TILE_SIZE // 2
+        pygame.draw.circle(screen, pygame.Color('orange'), center, TILE_SIZE // 2)
+
+
 class Game:
-    def __init__(self, labyrinth, hero, enemy):
+    def __init__(self, labyrinth, pacman, red, orange):
         self.labyrinth = labyrinth
-        self.hero = hero
-        self.enemy = enemy
+        self.pacman = pacman
+        self.red = red
+        self.orange = orange
 
     def render(self, screen):
         self.labyrinth.render(screen)
-        self.hero.render(screen)
-        self.enemy.render(screen)
+        self.pacman.render(screen)
+        self.red.render(screen)
+        self.orange.render(screen)
 
-    def update_hero(self):
-        next_x, next_y = self.hero.get_position()
+    def update_pacman(self):
+        next_x, next_y = self.pacman.get_position()
         if pygame.key.get_pressed()[pygame.K_LEFT]:
             next_x -= 1
         if pygame.key.get_pressed()[pygame.K_RIGHT]:
@@ -110,18 +130,32 @@ class Game:
         if pygame.key.get_pressed()[pygame.K_DOWN]:
             next_y += 1
         if self.labyrinth.is_free((next_x, next_y)):
-            self.hero.set_position((next_x, next_y))
+            self.pacman.set_position((next_x, next_y))
 
-    def move_enemy(self):
-        next_position = self.labyrinth.find_path_step(self.enemy.get_position(),
-                                                      self.hero.get_position())
-        self.enemy.set_position(next_position)
+    def move_red(self):
+        next_position = self.labyrinth.find_path_step(self.red.get_position(),
+                                                      self.pacman.get_position())
+        self.red.set_position(next_position)
+
+    def move_orange(self):  # Необходимо тестирование на большой карте, на текущей застревает в некоторых
+        x = abs(self.pacman.get_position()[0] - self.orange.get_position()[0])                   # местах
+        y = abs(self.pacman.get_position()[1] - self.orange.get_position()[1])
+        distance = round((x ** 2 + y ** 2) ** 0.5)
+        print(x, y, distance)
+        if distance >= 8:
+            next_position = self.labyrinth.find_path_step(self.orange.get_position(),
+                                                          self.pacman.get_position())
+        else:
+            next_position = self.labyrinth.find_path_step(self.orange.get_position(),
+                                                          (1, 13))
+        self.orange.set_position(next_position)
 
     def check_win(self):
-        return self.labyrinth.get_tile_id(self.hero.get_position()) == self.labyrinth.finish_tile
+        return self.labyrinth.get_tile_id(self.pacman.get_position()) == self.labyrinth.finish_tile
 
     def check_lose(self):
-        return self.hero.get_position() == self.enemy.get_position()
+        return self.pacman.get_position() == self.red.get_position() or\
+               self.pacman.get_position() == self.orange.get_position()
 
 
 def show_message(screen, message):
@@ -141,9 +175,10 @@ def main():
     screen = pygame.display.set_mode(WINDOW_SIZE)
 
     labyrinth = Labyrinth('simple_map.txt', [0, 2], 2)
-    hero = Hero((1, 1))
-    enemy = Enemy((13, 13))
-    game = Game(labyrinth, hero, enemy)
+    hero = Pacman((1, 1))
+    red = Red((7, 7))
+    orange = Orange((2, 13))
+    game = Game(labyrinth, hero, red, orange)
 
     clock = pygame.time.Clock()
     running = True
@@ -153,10 +188,11 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             if event.type == ENEMY_EVENT_TYPE and not game_over:
-                game.move_enemy()
+                game.move_red()
+                game.move_orange()
         if not game_over:
-            game.update_hero()
-        game.update_hero()
+            game.update_pacman()
+        game.update_pacman()
         screen.fill((0, 0, 0))
         game.render(screen)
         if game.check_win():
