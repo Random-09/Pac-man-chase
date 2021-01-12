@@ -52,6 +52,7 @@ class Labyrinth:
             return start
         while prev[y][x] != start:
             x, y = prev[y][x]
+        print(x, y)
         return x, y
 
 
@@ -125,7 +126,7 @@ class Game:
 
 def show_message(screen, message):
     font = pygame.font.Font(None, 50)
-    text = font.render(message, 1, (50, 70, 0))
+    text = font.render(message, True, (50, 70, 0))
     text_x = WINDOW_WIDTH // 2 - text.get_width() // 2
     text_y = WINDOW_HEIGHT // 2 - text.get_height() // 2
     text_w = text.get_width()
@@ -140,8 +141,8 @@ def main():
     screen = pygame.display.set_mode(WINDOW_SIZE)
 
     labyrinth = Labyrinth('simple_map.txt', [0, 2], 2)
-    hero = Hero((7, 7))
-    enemy = Enemy((7, 1))
+    hero = Hero((1, 1))
+    enemy = Enemy((13, 13))
     game = Game(labyrinth, hero, enemy)
 
     clock = pygame.time.Clock()
