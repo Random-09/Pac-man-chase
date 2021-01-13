@@ -3,7 +3,7 @@ import pygame
 WINDOW_SIZE = WINDOW_WIDTH, WINDOW_HEIGHT = 480, 480
 FPS = 15
 TILE_SIZE = 32
-ENEMY_EVENT_TYPE = pygame.USEREVENT + 6
+GAME_EVENT_TYPE = pygame.USEREVENT + 6
 
 
 class Labyrinth:
@@ -53,12 +53,13 @@ class Labyrinth:
             return start
         while prev[y][x] != start:
             x, y = prev[y][x]
-        print(x, y)
         return x, y
 
 
 class Pacman:
     def __init__(self, position):
+        self.next_direction = ''
+        self.current_direction = ''
         self.x, self.y = position
 
     def get_position(self):
@@ -66,6 +67,19 @@ class Pacman:
 
     def set_position(self, position):
         self.x, self.y = position
+
+    def get_curr_dir(self):
+        return self.current_direction
+
+    def get_next_dir(self):
+        return self.next_direction
+
+    def set_next_dir(self, direction):
+        self.next_direction = direction
+
+    def set_curr_dir(self, direction):
+        self.current_direction = direction
+        self.next_direction = ''
 
     def render(self, screen):
         center = self.x * TILE_SIZE + TILE_SIZE // 2, self.y * TILE_SIZE + TILE_SIZE // 2
@@ -75,8 +89,8 @@ class Pacman:
 class Red:
     def __init__(self, position):
         self.x, self.y = position
-        self.delay = 100
-        pygame.time.set_timer(ENEMY_EVENT_TYPE, self.delay)
+        self.delay = 200
+        pygame.time.set_timer(GAME_EVENT_TYPE, self.delay)
 
     def get_position(self):
         return self.x, self.y
@@ -89,11 +103,28 @@ class Red:
         pygame.draw.circle(screen, pygame.Color('red'), center, TILE_SIZE // 2)
 
 
-class Orange:
+class Pink:  # в разработке
     def __init__(self, position):
         self.x, self.y = position
         self.delay = 100
-        pygame.time.set_timer(ENEMY_EVENT_TYPE, self.delay)
+        pygame.time.set_timer(GAME_EVENT_TYPE, self.delay)
+
+    def get_position(self):
+        return self.x, self.y
+
+    def set_position(self, position):
+        self.x, self.y = position
+
+    def render(self, screen):
+        center = self.x * TILE_SIZE + TILE_SIZE // 2, self.y * TILE_SIZE + TILE_SIZE // 2
+        pygame.draw.circle(screen, pygame.Color('pink'), center, TILE_SIZE // 2)
+
+
+class Orange:
+    def __init__(self, position):
+        self.x, self.y = position
+        self.delay = 200
+        pygame.time.set_timer(GAME_EVENT_TYPE, self.delay)
 
     def get_position(self):
         return self.x, self.y
@@ -107,11 +138,12 @@ class Orange:
 
 
 class Game:
-    def __init__(self, labyrinth, pacman, red, orange):
+    def __init__(self, labyrinth, pacman, red, orange, pink):
         self.labyrinth = labyrinth
         self.pacman = pacman
         self.red = red
         self.orange = orange
+        self.pink = pink
 
     def render(self, screen):
         self.labyrinth.render(screen)
@@ -119,16 +151,39 @@ class Game:
         self.red.render(screen)
         self.orange.render(screen)
 
-    def update_pacman(self):
+    def move_pacman(self):  # добавлено AWSD
+        if pygame.key.get_pressed()[pygame.K_LEFT] or pygame.key.get_pressed()[pygame.K_a]:
+            self.pacman.set_next_dir('left')
+        if pygame.key.get_pressed()[pygame.K_RIGHT] or pygame.key.get_pressed()[pygame.K_d]:
+            self.pacman.set_next_dir('right')
+        if pygame.key.get_pressed()[pygame.K_UP] or pygame.key.get_pressed()[pygame.K_w]:
+            self.pacman.set_next_dir('up')
+        if pygame.key.get_pressed()[pygame.K_DOWN] or pygame.key.get_pressed()[pygame.K_s]:
+            self.pacman.set_next_dir('down')
+
+    def update_pacman(self):  # Добавлено перемещение как в игре, требуется оптимизация кода и скорости
         next_x, next_y = self.pacman.get_position()
-        if pygame.key.get_pressed()[pygame.K_LEFT]:
-            next_x -= 1
-        if pygame.key.get_pressed()[pygame.K_RIGHT]:
-            next_x += 1
-        if pygame.key.get_pressed()[pygame.K_UP]:
+        if self.pacman.get_next_dir() == 'up':
+            if self.labyrinth.is_free((next_x, next_y - 1)):
+                self.pacman.set_curr_dir('up')
+        if self.pacman.get_next_dir() == 'down':
+            if self.labyrinth.is_free((next_x, next_y + 1)):
+                self.pacman.set_curr_dir('down')
+        if self.pacman.get_next_dir() == 'right':
+            if self.labyrinth.is_free((next_x + 1, next_y)):
+                self.pacman.set_curr_dir('right')
+        if self.pacman.get_next_dir() == 'left':
+            if self.labyrinth.is_free((next_x - 1, next_y)):
+                self.pacman.set_curr_dir('left')
+
+        if self.pacman.get_curr_dir() == 'up':
             next_y -= 1
-        if pygame.key.get_pressed()[pygame.K_DOWN]:
+        if self.pacman.get_curr_dir() == 'down':
             next_y += 1
+        if self.pacman.get_curr_dir() == 'right':
+            next_x += 1
+        if self.pacman.get_curr_dir() == 'left':
+            next_x -= 1
         if self.labyrinth.is_free((next_x, next_y)):
             self.pacman.set_position((next_x, next_y))
 
@@ -141,7 +196,6 @@ class Game:
         x = abs(self.pacman.get_position()[0] - self.orange.get_position()[0])                   # местах
         y = abs(self.pacman.get_position()[1] - self.orange.get_position()[1])
         distance = round((x ** 2 + y ** 2) ** 0.5)
-        print(x, y, distance)
         if distance >= 8:
             next_position = self.labyrinth.find_path_step(self.orange.get_position(),
                                                           self.pacman.get_position())
@@ -178,7 +232,8 @@ def main():
     hero = Pacman((1, 1))
     red = Red((7, 7))
     orange = Orange((2, 13))
-    game = Game(labyrinth, hero, red, orange)
+    pink = Pink((13, 13))
+    game = Game(labyrinth, hero, red, orange, pink)
 
     clock = pygame.time.Clock()
     running = True
@@ -187,12 +242,11 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            if event.type == ENEMY_EVENT_TYPE and not game_over:
-                game.move_red()
-                game.move_orange()
-        if not game_over:
-            game.update_pacman()
-        game.update_pacman()
+            if event.type == GAME_EVENT_TYPE and not game_over:
+                game.move_pacman()
+                game.update_pacman()
+                # game.move_red()
+                # game.move_orange()
         screen.fill((0, 0, 0))
         game.render(screen)
         if game.check_win():
@@ -208,3 +262,13 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+# TODO (для себя)
+# Сделать перемещение всех персонажей не по клеточкам
+
+# Доделать других призраков
+
+# Улучшить управление Пакмана, т.к. не всегда срабатывают повороты
+
+# Оранжевому призраку необходимо тестирование на большой карте, на этой он застревает в коридорах
