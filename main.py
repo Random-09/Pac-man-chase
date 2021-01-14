@@ -1,6 +1,6 @@
 import pygame
 
-WINDOW_SIZE = WINDOW_WIDTH, WINDOW_HEIGHT = 480, 480  # 480, 480 для "simple_map.txt"
+WINDOW_SIZE = WINDOW_WIDTH, WINDOW_HEIGHT = 900, 1000  # 480, 480 для "simple_map.txt"
 FPS = 16                                              # 900, 1000 для "orig_map.txt"
 TILE_SIZE = 32
 GAME_EVENT_TYPE = pygame.USEREVENT + 6
@@ -32,41 +32,39 @@ class Labyrinth:
     def is_free(self, position):
         return self.get_tile_id(position) in self.free_tiles
 
-    def find_path_step(self, start, target, direction):
+    def find_path_step(self, start, target, direction):  # сократить (по возможности)
         x, y = start
         xt, yt = target
         tile_list = []
         distance = []
-        print(x, y, xt, yt)
         if direction == 'up':
             if self.is_free((x, y - 1)):  # up
                 tile_list.append((x, y - 1))
-            if self.is_free((x + 1, y)):  # right
-                tile_list.append((x + 1, y))
             if self.is_free((x - 1, y)):  # left
                 tile_list.append((x - 1, y))
-        print(tile_list)
+            if self.is_free((x + 1, y)):  # right
+                tile_list.append((x + 1, y))
         if direction == 'down':
+            if self.is_free((x - 1, y)):  # left
+                tile_list.append((x - 1, y))
             if self.is_free((x, y + 1)):  # down
                 tile_list.append((x, y + 1))
             if self.is_free((x + 1, y)):  # right
                 tile_list.append((x + 1, y))
-            if self.is_free((x - 1, y)):  # left
-                tile_list.append((x - 1, y))
         if direction == 'right':
-            if self.is_free((x + 1, y)):  # right
-                tile_list.append((x + 1, y))
-            if self.is_free((x, y + 1)):  # down
-                tile_list.append((x, y + 1))
             if self.is_free((x, y - 1)):  # up
                 tile_list.append((x, y - 1))
+            if self.is_free((x, y + 1)):  # down
+                tile_list.append((x, y + 1))
+            if self.is_free((x + 1, y)):  # right
+                tile_list.append((x + 1, y))
         if direction == 'left':
+            if self.is_free((x, y - 1)):  # up
+                tile_list.append((x, y - 1))
             if self.is_free((x - 1, y)):  # left
                 tile_list.append((x - 1, y))
             if self.is_free((x, y + 1)):  # down
                 tile_list.append((x, y + 1))
-            if self.is_free((x, y - 1)):  # up
-                tile_list.append((x, y - 1))
         for tile in tile_list:
             xn, yn = tile
             distance.append(abs(xn - xt) ** 2 + abs(yn - yt) ** 2)
@@ -127,7 +125,31 @@ class Red:
         pygame.draw.circle(screen, pygame.Color('red'), center, TILE_SIZE // 2)
 
 
-class Pink:  # в разработке
+class Pink:
+    def __init__(self, position):
+        self.direction = 'up'
+        self.x, self.y = position
+        self.delay = 200
+        pygame.time.set_timer(GAME_EVENT_TYPE, self.delay)
+
+    def get_position(self):
+        return self.x, self.y
+
+    def set_position(self, position):
+        self.x, self.y = position
+
+    def get_direction(self):
+        return self.direction
+
+    def set_direction(self, direction):
+        self.direction = direction
+
+    def render(self, screen):
+        center = self.x * TILE_SIZE + TILE_SIZE // 2, self.y * TILE_SIZE + TILE_SIZE // 2
+        pygame.draw.circle(screen, pygame.Color('pink'), center, TILE_SIZE // 2)
+
+
+class Blue:
     def __init__(self, position):
         self.direction = 'up'
         self.x, self.y = position
@@ -148,7 +170,7 @@ class Pink:  # в разработке
 
     def render(self, screen):
         center = self.x * TILE_SIZE + TILE_SIZE // 2, self.y * TILE_SIZE + TILE_SIZE // 2
-        pygame.draw.circle(screen, pygame.Color('pink'), center, TILE_SIZE // 2)
+        pygame.draw.circle(screen, pygame.Color('blue'), center, TILE_SIZE // 2)
 
 
 class Orange:
@@ -176,18 +198,20 @@ class Orange:
 
 
 class Game:
-    def __init__(self, labyrinth, pacman, red, orange, pink):
+    def __init__(self, labyrinth, pacman, red, pink, blue, orange):
         self.labyrinth = labyrinth
         self.pacman = pacman
         self.red = red
-        self.orange = orange
         self.pink = pink
+        self.blue = blue
+        self.orange = orange
 
     def render(self, screen):
         self.labyrinth.render(screen)
         self.pacman.render(screen)
         self.red.render(screen)
         self.pink.render(screen)
+        self.blue.render(screen)
         self.orange.render(screen)
 
     def direct_pacman(self):
@@ -234,7 +258,7 @@ class Game:
 
     def move_pink(self):
         direction = self.pacman.get_curr_dir()
-        target = ''
+        target = ()
         if direction == 'up':
             target = self.pacman.get_position()[0] - 4, self.pacman.get_position()[1] - 4
         if direction == 'down':
@@ -248,8 +272,28 @@ class Game:
         self.pink.set_direction(find_direction(self.pink.get_position(), next_position))
         self.pink.set_position(next_position)
 
-    def move_orange(self):  # Необходимо тестирование на большой карте, на текущей застревает в некоторых
-        x = abs(self.pacman.get_position()[0] - self.orange.get_position()[0])                   # местах
+    def move_blue(self):
+        direction = self.pacman.get_curr_dir()
+        center = ()
+        if direction == 'up':
+            center = self.pacman.get_position()[0] - 2, self.pacman.get_position()[1] - 2
+        if direction == 'down':
+            center = self.pacman.get_position()[0], self.pacman.get_position()[1] + 2
+        if direction == 'right':
+            center = self.pacman.get_position()[0] + 2, self.pacman.get_position()[1]
+        if direction == 'left':
+            center = self.pacman.get_position()[0] - 2, self.pacman.get_position()[1]
+        xc, yc = center
+        xr, yr = self.red.get_position()
+        target = 2 * xc - xr, 2 * yc - yr
+        print(target)
+        next_position = self.labyrinth.find_path_step(self.blue.get_position(), target,
+                                                      self.blue.get_direction())
+        self.blue.set_direction(find_direction(self.blue.get_position(), next_position))
+        self.blue.set_position(next_position)
+
+    def move_orange(self):
+        x = abs(self.pacman.get_position()[0] - self.orange.get_position()[0])
         y = abs(self.pacman.get_position()[1] - self.orange.get_position()[1])
         distance = round((x ** 2 + y ** 2) ** 0.5)
         if distance >= 8:
@@ -299,12 +343,13 @@ def main():
     pygame.init()
     screen = pygame.display.set_mode(WINDOW_SIZE)
 
-    labyrinth = Labyrinth('simple_map.txt', [0, 2], 2)
-    hero = Pacman((1, 1))
-    red = Red((7, 7))
-    orange = Orange((2, 7))
+    labyrinth = Labyrinth('orig_map.txt', [0, 2], 2)
+    pacman = Pacman((1, 1))
+    red = Red((14, 14))
     pink = Pink((1, 7))
-    game = Game(labyrinth, hero, red, orange, pink)
+    blue = Blue((14, 2))
+    orange = Orange((2, 7))
+    game = Game(labyrinth, pacman, red, pink, blue, orange)
 
     clock = pygame.time.Clock()
     running = True
@@ -316,8 +361,9 @@ def main():
             if event.type == GAME_EVENT_TYPE and not game_over:
                 game.update_direct_pacman()
                 # game.move_red()
-                # game.move_orange()
                 # game.move_pink()
+                game.move_blue()
+                # game.move_orange()
         game.direct_pacman()
         screen.fill((0, 0, 0))
         game.render(screen)
@@ -337,10 +383,13 @@ if __name__ == '__main__':
 
 
 # TODO (для себя)
-# Сделать алгоритм передвижения призраков как в оригинальном пакмане (СДЕЛАНО, ВЕРСИЯ 1.1)
+# Сделать алгоритм передвижения призраков как в оригинальном пакмане (СДЕЛАНО, ВЕРСИЯ 1.1 (приоритет поворотов,
+#                                                                                          неоптимизированная))
+# По возможности сократить и оптимизировать алгоритм
 
 # Доделать других призраков
 
+# Сделать персонажей спрайтами
 # Сделать плавное перемещение всех персонажей
 
 # Улучшить управление Пакмана, т.к. не всегда срабатывают повороты
